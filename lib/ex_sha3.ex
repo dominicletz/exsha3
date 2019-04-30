@@ -348,14 +348,11 @@ defmodule ExSha3 do
     end
   end
 
-  defp rol(x, 0), do: x
-
-  defp rol(<<x::little-unsigned-size(64)>>, s) when 2 * x > 0xFFFFFFFFFFFFFFFF do
-    rol(<<2 * x - 0x10000000000000000 + 1::little-unsigned-size(64)>>, s - 1)
-  end
-
   defp rol(<<x::little-unsigned-size(64)>>, s) do
-    rol(<<2 * x - 0x10000000000000000::little-unsigned-size(64)>>, s - 1)
+    x = x <<< s
+    y = x >>> 64
+    x = (x &&& 0xFFFFFFFFFFFFFFFF) + y
+    <<x::little-unsigned-size(64)>>
   end
 
   @zero <<0::little-unsigned-size(64)>>
