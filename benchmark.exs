@@ -1,9 +1,10 @@
-long_string = String.duplicate("1234567890", 2048)
-short_string = String.duplicate("1", 128)
-
+# MIX_ENV=benchmark mix run benchmark.exs
 Benchee.run(%{
-  "long   ex_sha3_256" => fn -> ExSha3.sha3_256(long_string) end,
-  "long  nif_sha3_256" => fn -> :sha3.hash(256, long_string) end,
-  "short  ex_sha3_256" => fn -> ExSha3.sha3_256(short_string) end,
-  "short nif_sha3_256" => fn -> :sha3.hash(256, short_string) end,
+  "  ex_sha3_256" => fn input -> ExSha3.sha3_256(input) end,
+  "tiny_sha3_256" => fn input -> ExSha3Tiny.sha3_256(input) end,
+  " nif_sha3_256" => fn input -> :sha3.hash(256, input) end,
+},
+inputs: %{
+  "short string" => String.duplicate("1", 128),
+  "long  string" => String.duplicate("1234567890", 2048),
 })

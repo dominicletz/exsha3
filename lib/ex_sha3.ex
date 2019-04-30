@@ -3,7 +3,7 @@ defmodule ExSha3 do
   use Bitwise, only_operators: true
 
   @moduledoc """
-    ExSha supports the three hash algorithms:
+    ExSha3 supports the three hash algorithms:
       * KECCAK1600-f the original pre-fips version as used in Ethereum
       * SHA3 the fips-202 approved final hash
       * SHAKE

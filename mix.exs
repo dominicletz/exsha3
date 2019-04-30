@@ -42,9 +42,8 @@ defmodule ExSha3.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:benchee, "~> 1.0", only: :dev},
-      {:sha3, "2.0.0", only: [:dev, :test]},
-      {:keccakf1600, "~> 2.0", hex: :keccakf1600_orig, only: [:dev, :test]},
+      {:benchee, "~> 1.0", only: :benchmark},
+      {:sha3, "2.0.0", only: :benchmark},
       {:ex_doc, "~> 0.19", only: :dev, runtime: false}
     ]
   end
