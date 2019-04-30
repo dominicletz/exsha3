@@ -23,7 +23,9 @@ end
 This is a proof of concept, and while is correct it is also really slow. Have a look at these numbers from the included benchmark script:
 
 ```
-mix run benchmark.exs 
+> ./benchmark.sh
+Compiling 2 files (.ex)
+Generated ex_sha3 app
 Operating System: Linux
 CPU Information: Intel(R) Core(TM) i5-4210U CPU @ 1.70GHz
 Number of Available Cores: 4
@@ -36,23 +38,35 @@ warmup: 2 s
 time: 5 s
 memory time: 0 ns
 parallel: 1
-inputs: none specified
-Estimated total run time: 28 s
+inputs: long  string, short string
+Estimated total run time: 42 s
 
-Benchmarking long  elx_sha3_256...
-Benchmarking long  nif_sha3_256...
-Benchmarking short elx_sha3_256...
-Benchmarking short nif_sha3_256...
+Benchmarking   ex_sha3_256 with input long  string...
+Benchmarking   ex_sha3_256 with input short string...
+Benchmarking  nif_sha3_256 with input long  string...
+Benchmarking  nif_sha3_256 with input short string...
+Benchmarking tiny_sha3_256 with input long  string...
+Benchmarking tiny_sha3_256 with input short string...
 
-Name                         ips        average  deviation         median         99th %
-short nif_sha3_256      198.18 K        5.05 μs   ±298.35%        4.34 μs        9.57 μs
-long  nif_sha3_256        2.13 K      470.47 μs    ±25.09%      427.39 μs      834.64 μs
-short elx_sha3_256       0.102 K     9823.35 μs    ±20.22%     9053.57 μs    16869.85 μs
-long  elx_sha3_256     0.00069 K  1442829.28 μs     ±3.66%  1450521.55 μs  1494083.30 μs
+##### With input long  string #####
+Name                    ips        average  deviation         median         99th %
+ nif_sha3_256       2243.02        0.45 ms    ±19.35%        0.41 ms        0.80 ms
+  ex_sha3_256          9.36      106.82 ms    ±17.61%      103.31 ms      140.47 ms
+tiny_sha3_256          3.08      324.64 ms     ±7.78%      329.71 ms      346.81 ms
 
 Comparison: 
-short nif_sha3_256      198.18 K
-long  nif_sha3_256        2.13 K - 93.24x slower +465.43 μs
-short elx_sha3_256       0.102 K - 1946.84x slower +9818.31 μs
-long  elx_sha3_256     0.00069 K - 285946.87x slower +1442824.24 μs
+ nif_sha3_256       2243.02
+  ex_sha3_256          9.36 - 239.60x slower +106.37 ms
+tiny_sha3_256          3.08 - 728.18x slower +324.20 ms
+
+##### With input short string #####
+Name                    ips        average  deviation         median         99th %
+ nif_sha3_256     215033.52     0.00465 ms   ±315.46%     0.00428 ms     0.00911 ms
+  ex_sha3_256        870.25        1.15 ms    ±58.49%        0.90 ms        2.65 ms
+tiny_sha3_256        685.44        1.46 ms    ±14.52%        1.40 ms        2.59 ms
+
+Comparison: 
+ nif_sha3_256     215033.52
+  ex_sha3_256        870.25 - 247.09x slower +1.14 ms
+tiny_sha3_256        685.44 - 313.71x slower +1.45 ms
 ```
