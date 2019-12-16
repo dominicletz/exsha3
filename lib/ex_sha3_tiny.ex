@@ -1,7 +1,6 @@
 require Bitwise
 
 defmodule ExSha3Tiny do
-  @compile {:inline}
   @moduledoc """
     ExSha3 supports the three hash algorithms:
       * KECCAK1600-f the original pre-fips version as used in Ethereum
@@ -13,6 +12,16 @@ defmodule ExSha3Tiny do
     to the provided outlen parameter.
   """
 
+  @compile :inline_list_funcs
+  @compile {:inline_unroll, 24}
+  @compile {:inline_effort, 500}
+  @compile {:inline_size, 1000}
+  @compile {
+    :inline,
+    # for24: 3,
+    # for5: 3,
+    rho: 1, pi: 1, rc: 1, rol: 2, for_n: 4, binary_a64: 2, xor: 2, bnot: 1, band: 2
+  }
   @rho {1, 3, 6, 10, 15, 21, 28, 36, 45, 55, 2, 14, 27, 41, 56, 8, 25, 43, 62, 18, 39, 61, 20, 44}
   @pi {10, 7, 11, 17, 18, 3, 5, 16, 8, 21, 24, 4, 15, 23, 19, 13, 12, 2, 20, 14, 22, 9, 6, 1}
   @rc {1, 0x8082, 0x800000000000808A, 0x8000000080008000, 0x808B, 0x80000001, 0x8000000080008081,
@@ -34,19 +43,16 @@ defmodule ExSha3Tiny do
   end
 
   defp for_n(n, step, acc, fun) do
-    acc =
-      Enum.reduce(0..(n - 1), acc, fn i, acc ->
-        fun.(i * step, acc)
-      end)
-
-    acc
+    :lists.foldl(fn i, acc ->
+      fun.(i * step, acc)
+    end, acc, :lists.seq(0, n-1))
   end
 
-  defp for24(step, acc, fun), do: for_n(24, step, acc, fun)
-  defp for5(step, acc, fun), do: for_n(5, step, acc, fun)
+  # defp for24(step, acc, fun), do: for_n(24, step, acc, fun)
+  # defp for5(step, acc, fun), do: for_n(5, step, acc, fun)
 
   defp binary_a64(<<bin::little-unsigned-size(64), rest::binary>>, map) do
-    binary_a64(rest, Map.put(map, Map.size(map), bin))
+    binary_a64(rest, Map.put(map, map_size(map), bin))
   end
 
   defp binary_a64("", map) do
@@ -75,21 +81,21 @@ defmodule ExSha3Tiny do
       {state, %{0 => @zero64, 1 => @zero64, 2 => @zero64, 3 => @zero64, 4 => @zero64, t: @zero64}}
 
     {state, _inbin} =
-      for24(1, acc, fn i, acc ->
+      for_n(24, 1, acc, fn i, acc ->
         # // Theta
         acc =
-          for5(1, acc, fn x, {state, inbin} ->
+          for_n(5, 1, acc, fn x, {state, inbin} ->
             inbin = %{inbin | x => @zero64}
 
-            for5(5, {state, inbin}, fn y, {state, inbin} ->
+            for_n(5, 5, {state, inbin}, fn y, {state, inbin} ->
               inbin = %{inbin | x => xor(inbin[x], state[x + y])}
               {state, inbin}
             end)
           end)
 
         {state, inbin} =
-          for5(1, acc, fn x, acc ->
-            for5(5, acc, fn y, {state, inbin} ->
+          for_n(5, 1, acc, fn x, acc ->
+            for_n(5, 5, acc, fn y, {state, inbin} ->
               state = %{
                 state
                 | (y + x) =>
@@ -104,7 +110,7 @@ defmodule ExSha3Tiny do
         inbin = %{inbin | t: state[1]}
 
         acc =
-          for24(1, {state, inbin}, fn x, {state, inbin} ->
+          for_n(24, 1, {state, inbin}, fn x, {state, inbin} ->
             inbin = %{inbin | 0 => state[pi(x)]}
             state = %{state | pi(x) => rol(inbin.t, rho(x))}
             inbin = %{inbin | t: inbin[0]}
@@ -113,14 +119,14 @@ defmodule ExSha3Tiny do
 
         # // Chi
         {state, inbin} =
-          for5(5, acc, fn y, acc ->
+          for_n(5, 5, acc, fn y, acc ->
             acc =
-              for5(1, acc, fn x, {state, inbin} ->
+              for_n(5, 1, acc, fn x, {state, inbin} ->
                 inbin = %{inbin | x => state[y + x]}
                 {state, inbin}
               end)
 
-            for5(1, acc, fn x, {state, inbin} ->
+            for_n(5, 1, acc, fn x, {state, inbin} ->
               state = %{
                 state
                 | (y + x) => xor(inbin[x], band(bnot(inbin[rem(x + 1, 5)]), inbin[rem(x + 2, 5)]))
