@@ -1,4 +1,5 @@
 require Bitwise
+require Record
 
 defmodule ExSha3Tiny do
   @moduledoc """
@@ -43,24 +44,28 @@ defmodule ExSha3Tiny do
   end
 
   defp for_n(n, step, acc, fun) do
-    :lists.foldl(fn i, acc ->
-      fun.(i * step, acc)
-    end, acc, :lists.seq(0, n-1))
+    :lists.foldl(
+      fn i, acc ->
+        fun.(i * step, acc)
+      end,
+      acc,
+      :lists.seq(0, n - 1)
+    )
   end
 
   # defp for24(step, acc, fun), do: for_n(24, step, acc, fun)
   # defp for5(step, acc, fun), do: for_n(5, step, acc, fun)
 
-  defp binary_a64(<<bin::little-unsigned-size(64), rest::binary>>, map) do
-    binary_a64(rest, Map.put(map, map_size(map), bin))
+  defp binary_a64(<<bin::little-unsigned-size(64), rest::binary>>, tuple) do
+    binary_a64(rest, Tuple.append(tuple, bin))
   end
 
-  defp binary_a64("", map) do
-    map
+  defp binary_a64("", tuple) do
+    tuple
   end
 
-  defp a64_binary(map) do
-    Map.values(map)
+  defp a64_binary(tuple) do
+    Tuple.to_list(tuple)
     |> Enum.map(fn num -> <<num::little-unsigned-size(64)>> end)
     |> :erlang.iolist_to_binary()
   end
@@ -74,74 +79,80 @@ defmodule ExSha3Tiny do
 
   defp band(a, b), do: Bitwise.band(a, b)
 
+  Record.defrecord(:calc,
+    inbin: {@zero64, @zero64, @zero64, @zero64, @zero64},
+    t: @zero64,
+    state: nil
+  )
+
   defp keccakf(a) do
-    state = binary_a64(a, %{})
+    state = binary_a64(a, {})
     # acc = {a, inbin}
-    acc =
-      {state, %{0 => @zero64, 1 => @zero64, 2 => @zero64, 3 => @zero64, 4 => @zero64, t: @zero64}}
+    acc = calc(state: state)
 
-    {state, _inbin} =
-      for_n(24, 1, acc, fn i, acc ->
-        # // Theta
-        acc =
-          for_n(5, 1, acc, fn x, {state, inbin} ->
-            inbin = %{inbin | x => @zero64}
+    for_n(24, 1, acc, fn i, acc ->
+      # // Theta
+      acc =
+        for_n(5, 1, acc, fn x, acc = calc(inbin: inbin) ->
+          inbin = put_elem(inbin, x, @zero64)
+          acc = calc(acc, inbin: inbin)
 
-            for_n(5, 5, {state, inbin}, fn y, {state, inbin} ->
-              inbin = %{inbin | x => xor(inbin[x], state[x + y])}
-              {state, inbin}
+          for_n(5, 5, acc, fn y, acc = calc(state: state, inbin: inbin) ->
+            ret = xor(elem(inbin, x), elem(state, x + y))
+            inbin = put_elem(inbin, x, ret)
+            calc(acc, inbin: inbin)
+          end)
+        end)
+
+      calc(state: state, inbin: inbin) =
+        for_n(5, 1, acc, fn x, acc ->
+          for_n(5, 5, acc, fn y, acc = calc(state: state, inbin: inbin) ->
+            ret =
+              xor(elem(inbin, rem(x + 4, 5)), rol(elem(inbin, rem(x + 1, 5)), 1))
+              |> xor(elem(state, y + x))
+
+            state = put_elem(state, x + y, ret)
+            calc(acc, state: state)
+          end)
+        end)
+
+      # // Rho and pi
+      acc = calc(t: elem(state, 1), state: state, inbin: inbin)
+
+      acc =
+        for_n(24, 1, acc, fn x, calc(state: state, inbin: inbin, t: t) ->
+          inbin = put_elem(inbin, 0, elem(state, pi(x)))
+          state = put_elem(state, pi(x), rol(t, rho(x)))
+          calc(t: elem(inbin, 0), state: state, inbin: inbin)
+        end)
+
+      # // Chi
+      acc =
+        calc(state: state) =
+        for_n(5, 5, acc, fn y, acc ->
+          acc =
+            for_n(5, 1, acc, fn x, acc = calc(state: state, inbin: inbin) ->
+              inbin = put_elem(inbin, x, elem(state, y + x))
+              calc(acc, inbin: inbin)
             end)
+
+          for_n(5, 1, acc, fn x, acc = calc(state: state, inbin: inbin) ->
+            ret =
+              bnot(elem(inbin, rem(x + 1, 5)))
+              |> band(elem(inbin, rem(x + 2, 5)))
+              |> xor(elem(inbin, x))
+
+            state = put_elem(state, y + x, ret)
+            calc(acc, state: state)
           end)
+        end)
 
-        {state, inbin} =
-          for_n(5, 1, acc, fn x, acc ->
-            for_n(5, 5, acc, fn y, {state, inbin} ->
-              state = %{
-                state
-                | (y + x) =>
-                    xor(state[y + x], xor(inbin[rem(x + 4, 5)], rol(inbin[rem(x + 1, 5)], 1)))
-              }
-
-              {state, inbin}
-            end)
-          end)
-
-        # // Rho and pi
-        inbin = %{inbin | t: state[1]}
-
-        acc =
-          for_n(24, 1, {state, inbin}, fn x, {state, inbin} ->
-            inbin = %{inbin | 0 => state[pi(x)]}
-            state = %{state | pi(x) => rol(inbin.t, rho(x))}
-            inbin = %{inbin | t: inbin[0]}
-            {state, inbin}
-          end)
-
-        # // Chi
-        {state, inbin} =
-          for_n(5, 5, acc, fn y, acc ->
-            acc =
-              for_n(5, 1, acc, fn x, {state, inbin} ->
-                inbin = %{inbin | x => state[y + x]}
-                {state, inbin}
-              end)
-
-            for_n(5, 1, acc, fn x, {state, inbin} ->
-              state = %{
-                state
-                | (y + x) => xor(inbin[x], band(bnot(inbin[rem(x + 1, 5)]), inbin[rem(x + 2, 5)]))
-              }
-
-              {state, inbin}
-            end)
-          end)
-
-        # // Iota
-        state = %{state | 0 => xor(state[0], rc(i))}
-        {state, inbin}
-      end)
-
-    a64_binary(state)
+      # // Iota
+      state = put_elem(state, 0, xor(elem(state, 0), rc(i)))
+      calc(acc, state: state)
+    end)
+    |> calc(:state)
+    |> a64_binary()
   end
 
   defp xorin(dst, src, offset, len) do
