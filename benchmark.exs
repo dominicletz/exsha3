@@ -1,4 +1,10 @@
 # MIX_ENV=benchmark mix run benchmark.exs
+flavor = try do
+  :erlang.system_info(:emu_flavor)
+rescue
+  ArgumentError -> "smp"
+end
+IO.puts("=========== emu_flavor = #{flavor} ===========")
 Benchee.run(%{
   "  ex_sha3_256" => fn input -> ExSha3.sha3_256(input) end,
   "tiny_sha3_256" => fn input -> ExSha3Tiny.sha3_256(input) end,

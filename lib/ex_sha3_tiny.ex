@@ -19,8 +19,6 @@ defmodule ExSha3Tiny do
   @compile {:inline_size, 1000}
   @compile {
     :inline,
-    # for24: 3,
-    # for5: 3,
     rho: 1, pi: 1, rc: 1, rol: 2, for_n: 4, binary_a64: 2, xor: 2, bnot: 1, band: 2
   }
   @rho {1, 3, 6, 10, 15, 21, 28, 36, 45, 55, 2, 14, 27, 41, 56, 8, 25, 43, 62, 18, 39, 61, 20, 44}
