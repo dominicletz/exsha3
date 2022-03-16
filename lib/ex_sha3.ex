@@ -201,63 +201,63 @@ defmodule ExSha3 do
       two = exor(b2, b7, b12, b17, b22)
       three = exor(b3, b8, b13, b18, b23)
       four = exor(b4, b9, b14, b19, b24)
-      tmp0 = :crypto.exor(four, rol(one, 1))
-      tmp1 = :crypto.exor(zero, rol(two, 1))
-      tmp2 = :crypto.exor(one, rol(three, 1))
-      tmp3 = :crypto.exor(two, rol(four, 1))
-      tmp4 = :crypto.exor(three, rol(zero, 1))
+      tmp0 = exor(four, rol(one, 1))
+      tmp1 = exor(zero, rol(two, 1))
+      tmp2 = exor(one, rol(three, 1))
+      tmp3 = exor(two, rol(four, 1))
+      tmp4 = exor(three, rol(zero, 1))
 
       keccakf_exor(
         unquote(step),
-        :crypto.exor(b0, tmp0),
+        exor(b0, tmp0),
         # b6 -> b1
-        rol(:crypto.exor(b6, tmp1), 44),
+        rol(exor(b6, tmp1), 44),
         # b12 -> b2
-        rol(:crypto.exor(b12, tmp2), 43),
+        rol(exor(b12, tmp2), 43),
         # b18 -> b3
-        rol(:crypto.exor(b18, tmp3), 21),
+        rol(exor(b18, tmp3), 21),
         # b24 -> b4
-        rol(:crypto.exor(b24, tmp4), 14),
+        rol(exor(b24, tmp4), 14),
         # b3 -> b5
-        rol(:crypto.exor(b3, tmp3), 28),
+        rol(exor(b3, tmp3), 28),
         # b9 -> b6
-        rol(:crypto.exor(b9, tmp4), 20),
+        rol(exor(b9, tmp4), 20),
         # b10 -> b7
-        rol(:crypto.exor(b10, tmp0), 3),
+        rol(exor(b10, tmp0), 3),
         # b16 -> b8
-        rol(:crypto.exor(b16, tmp1), 45),
+        rol(exor(b16, tmp1), 45),
         # b22 -> b9
-        rol(:crypto.exor(b22, tmp2), 61),
+        rol(exor(b22, tmp2), 61),
         # b1 -> b10
-        rol(:crypto.exor(b1, tmp1), 1),
+        rol(exor(b1, tmp1), 1),
         # b7 -> b11
-        rol(:crypto.exor(b7, tmp2), 6),
+        rol(exor(b7, tmp2), 6),
         # b13 -> b12
-        rol(:crypto.exor(b13, tmp3), 25),
+        rol(exor(b13, tmp3), 25),
         # b19 -> b13
-        rol(:crypto.exor(b19, tmp4), 8),
+        rol(exor(b19, tmp4), 8),
         # b20 -> b14
-        rol(:crypto.exor(b20, tmp0), 18),
+        rol(exor(b20, tmp0), 18),
         # b4 -> b15
-        rol(:crypto.exor(b4, tmp4), 27),
+        rol(exor(b4, tmp4), 27),
         # b5 -> b16
-        rol(:crypto.exor(b5, tmp0), 36),
+        rol(exor(b5, tmp0), 36),
         # b11 -> b17
-        rol(:crypto.exor(b11, tmp1), 10),
+        rol(exor(b11, tmp1), 10),
         # b17 -> b18
-        rol(:crypto.exor(b17, tmp2), 15),
+        rol(exor(b17, tmp2), 15),
         # b23 -> b19
-        rol(:crypto.exor(b23, tmp3), 56),
+        rol(exor(b23, tmp3), 56),
         # b2 -> b20
-        rol(:crypto.exor(b2, tmp2), 62),
+        rol(exor(b2, tmp2), 62),
         # b8 -> b21
-        rol(:crypto.exor(b8, tmp3), 55),
+        rol(exor(b8, tmp3), 55),
         # b14 -> b22
-        rol(:crypto.exor(b14, tmp4), 39),
+        rol(exor(b14, tmp4), 39),
         # b15 -> b23
-        rol(:crypto.exor(b15, tmp0), 41),
+        rol(exor(b15, tmp0), 41),
         # b21 -> b24
-        rol(:crypto.exor(b21, tmp1), 2)
+        rol(exor(b21, tmp1), 2)
       )
     end
 
@@ -291,58 +291,58 @@ defmodule ExSha3 do
          ) do
       # b0  -> b0 ^^^ b1 &&& b2 #0 ^^^ rc
       keccakf(
-        :crypto.exor(
-          :crypto.exor(b0, band(:crypto.exor(b1, @full64), b2)),
+        exor(
+          exor(b0, band(exor(b1, @full64), b2)),
           <<unquote(rc)::little-unsigned-size(64)>>
         ),
         # b6  -> b1 ^^^ b2 &&& b3 #1
-        :crypto.exor(b1, band(:crypto.exor(b2, @full64), b3)),
+        exor(b1, band(exor(b2, @full64), b3)),
         # b12 -> b2 ^^^ b3 &&& b4 #2
-        :crypto.exor(b2, band(:crypto.exor(b3, @full64), b4)),
+        exor(b2, band(exor(b3, @full64), b4)),
         # b18 -> b3 ^^^ b4 &&& b0 #3
-        :crypto.exor(b3, band(:crypto.exor(b4, @full64), b0)),
+        exor(b3, band(exor(b4, @full64), b0)),
         # b24 -> b4 ^^^ b0 &&& b1 #4
-        :crypto.exor(b4, band(:crypto.exor(b0, @full64), b1)),
+        exor(b4, band(exor(b0, @full64), b1)),
         # b3  -> b5 ^^^ b6 &&& b7 #0
-        :crypto.exor(b5, band(:crypto.exor(b6, @full64), b7)),
+        exor(b5, band(exor(b6, @full64), b7)),
         # b9  -> b6 ^^^ b7 &&& b8 #1
-        :crypto.exor(b6, band(:crypto.exor(b7, @full64), b8)),
+        exor(b6, band(exor(b7, @full64), b8)),
         # b10 -> b7 ^^^ b8 &&& b9 #2
-        :crypto.exor(b7, band(:crypto.exor(b8, @full64), b9)),
+        exor(b7, band(exor(b8, @full64), b9)),
         # b16 -> b8 ^^^ b9 &&& b6 #3
-        :crypto.exor(b8, band(:crypto.exor(b9, @full64), b5)),
+        exor(b8, band(exor(b9, @full64), b5)),
         # b22 -> b9 ^^^ b6 &&& b5 #4
-        :crypto.exor(b9, band(:crypto.exor(b5, @full64), b6)),
+        exor(b9, band(exor(b5, @full64), b6)),
         # b1  -> b10 ^^^ b11 &&& b12 #0
-        :crypto.exor(b10, band(:crypto.exor(b11, @full64), b12)),
+        exor(b10, band(exor(b11, @full64), b12)),
         # b7  -> b11 ^^^ b12 &&& b14 #1
-        :crypto.exor(b11, band(:crypto.exor(b12, @full64), b13)),
+        exor(b11, band(exor(b12, @full64), b13)),
         # b13 -> b12 ^^^ b14 &&& b15 #2
-        :crypto.exor(b12, band(:crypto.exor(b13, @full64), b14)),
+        exor(b12, band(exor(b13, @full64), b14)),
         # b19 -> b13 ^^^ b15 &&& b10 #3
-        :crypto.exor(b13, band(:crypto.exor(b14, @full64), b10)),
+        exor(b13, band(exor(b14, @full64), b10)),
         # b20 -> b14 ^^^ b10 &&& b11 #4
-        :crypto.exor(b14, band(:crypto.exor(b10, @full64), b11)),
+        exor(b14, band(exor(b10, @full64), b11)),
         # b4  -> b15 ^^^ b16 &&& b17 #0
-        :crypto.exor(b15, band(:crypto.exor(b16, @full64), b17)),
+        exor(b15, band(exor(b16, @full64), b17)),
         # b5  -> b16 ^^^ b17 &&& b18 #1
-        :crypto.exor(b16, band(:crypto.exor(b17, @full64), b18)),
+        exor(b16, band(exor(b17, @full64), b18)),
         # b11 -> b17 ^^^ b18 &&& b19 #2
-        :crypto.exor(b17, band(:crypto.exor(b18, @full64), b19)),
+        exor(b17, band(exor(b18, @full64), b19)),
         # b17 -> b18 ^^^ b19 &&& b15 #3
-        :crypto.exor(b18, band(:crypto.exor(b19, @full64), b15)),
+        exor(b18, band(exor(b19, @full64), b15)),
         # b23 -> b19 ^^^ b15 &&& b16 #4
-        :crypto.exor(b19, band(:crypto.exor(b15, @full64), b16)),
+        exor(b19, band(exor(b15, @full64), b16)),
         # b2  -> b20 ^^^ b21 &&& b22 #0
-        :crypto.exor(b20, band(:crypto.exor(b21, @full64), b22)),
+        exor(b20, band(exor(b21, @full64), b22)),
         # b8  -> b21 ^^^ b22 &&& b23 #1
-        :crypto.exor(b21, band(:crypto.exor(b22, @full64), b23)),
+        exor(b21, band(exor(b22, @full64), b23)),
         # b14 -> b22 ^^^ b23 &&& b24 #2
-        :crypto.exor(b22, band(:crypto.exor(b23, @full64), b24)),
+        exor(b22, band(exor(b23, @full64), b24)),
         # b15 -> b23 ^^^ b24 &&& b20 #3
-        :crypto.exor(b23, band(:crypto.exor(b24, @full64), b20)),
+        exor(b23, band(exor(b24, @full64), b20)),
         # b21 -> b24 ^^^ b20 &&& b21 #4
-        :crypto.exor(b24, band(:crypto.exor(b20, @full64), b21)),
+        exor(b24, band(exor(b20, @full64), b21)),
         unquote(step) + 1
       )
     end
@@ -358,11 +358,15 @@ defmodule ExSha3 do
   @zero <<0::little-unsigned-size(64)>>
   defp exor(one, two, three, four, five) do
     @zero
-    |> :crypto.exor(one)
-    |> :crypto.exor(two)
-    |> :crypto.exor(three)
-    |> :crypto.exor(four)
-    |> :crypto.exor(five)
+    |> exor(one)
+    |> exor(two)
+    |> exor(three)
+    |> exor(four)
+    |> exor(five)
+  end
+
+  defp exor(one, two) do
+    :crypto.exor(one, two)
   end
 
   defp band(<<a::little-unsigned-size(64)>>, <<b::little-unsigned-size(64)>>) do
@@ -372,12 +376,12 @@ defmodule ExSha3 do
   defp xorin(dst, src, offset, len) do
     <<start::binary-size(len), rest::binary()>> = dst
     <<_start::binary-size(offset), block::binary-size(len), _rest::binary()>> = src
-    <<:crypto.exor(block, start)::binary(), rest::binary()>>
+    <<exor(block, start)::binary(), rest::binary()>>
   end
 
   defp xor(a, len, value) do
     <<start::binary-size(len), block::binary-size(1), rest::binary()>> = a
-    <<start::binary(), :crypto.exor(block, value)::binary(), rest::binary()>>
+    <<start::binary(), exor(block, value)::binary(), rest::binary()>>
   end
 
   # Fallbacks
