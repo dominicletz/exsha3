@@ -1,7 +1,7 @@
-defmodule ExSha3 do
-  @compile {:inline, exor: 5, band: 2, rol: 2, absorb: 6, squeeze: 4}
-  use Bitwise, only_operators: true
+require Bitwise
+require Record
 
+defmodule ExSha3 do
   @moduledoc """
     ExSha3 supports the three hash algorithms:
       * KECCAK1600-f the original pre-fips version as used in Ethereum
@@ -12,407 +12,232 @@ defmodule ExSha3 do
     bit length, while shake produces an arbitary length output according
     to the provided outlen parameter.
   """
-  for bit <- [224, 256, 384, 512] do
-    Module.eval_quoted(
-      __MODULE__,
-      Code.string_to_quoted("""
-        @spec keccak_#{bit}(binary()) :: binary()
-        def keccak_#{bit}(source), do: keccak(#{bit}, source)
 
-        @spec sha3_#{bit}(binary()) :: binary()
-        def sha3_#{bit}(source), do: sha3(#{bit}, source)
-      """)
+  @compile :inline_list_funcs
+  @compile {:inline_unroll, 24}
+  @compile {:inline_effort, 500}
+  @compile {:inline_size, 1000}
+  @compile {
+    :inline,
+    rho: 1, pi: 1, rc: 1, rol: 2, for_n: 4, binary_a64: 2, xor: 2, bnot: 1, band: 2
+  }
+  @rho {1, 3, 6, 10, 15, 21, 28, 36, 45, 55, 2, 14, 27, 41, 56, 8, 25, 43, 62, 18, 39, 61, 20, 44}
+  @pi {10, 7, 11, 17, 18, 3, 5, 16, 8, 21, 24, 4, 15, 23, 19, 13, 12, 2, 20, 14, 22, 9, 6, 1}
+  @rc {1, 0x8082, 0x800000000000808A, 0x8000000080008000, 0x808B, 0x80000001, 0x8000000080008081,
+       0x8000000000008009, 0x8A, 0x88, 0x80008009, 0x8000000A, 0x8000808B, 0x800000000000008B,
+       0x8000000000008089, 0x8000000000008003, 0x8000000000008002, 0x8000000000000080, 0x800A,
+       0x800000008000000A, 0x8000000080008081, 0x8000000000008080, 0x80000001, 0x8000000080008008}
+
+  @zero64 0
+  @full64 0xFFFFFFFFFFFFFFFF
+
+  defp rho(index), do: elem(@rho, index)
+  defp pi(index), do: elem(@pi, index)
+  defp rc(index), do: elem(@rc, index)
+
+  defp rol(x, s) do
+    x = Bitwise.bsl(x, s)
+    y = Bitwise.bsr(x, 64)
+    band(x, @full64) + y
+  end
+
+  defp for_n(n, step, acc, fun) do
+    :lists.foldl(
+      fn i, acc ->
+        fun.(i * step, acc)
+      end,
+      acc,
+      :lists.seq(0, n - 1)
     )
   end
 
-  for bit <- [128, 256] do
-    Module.eval_quoted(
-      __MODULE__,
-      Code.string_to_quoted("""
-        @spec shake_#{bit}(binary(), number()) :: binary()
-        def shake_#{bit}(source, outlen), do: shake(#{bit}, outlen, source)
-      """)
-    )
+  # defp for24(step, acc, fun), do: for_n(24, step, acc, fun)
+  # defp for5(step, acc, fun), do: for_n(5, step, acc, fun)
+
+  defp binary_a64(<<bin::little-unsigned-size(64), rest::binary>>, tuple) do
+    binary_a64(rest, Tuple.append(tuple, bin))
   end
 
-  @a <<0::200*8>>
-  for {bits, outlen, rate} <- [{224, 28, 144}, {256, 32, 136}, {384, 48, 104}, {512, 64, 72}] do
-    defp sha3(unquote(bits), src) do
-      len = byte_size(src)
-
-      @a
-      |> absorb(src, len, len, unquote(rate), <<0x06>>)
-      |> binary_part(0, unquote(outlen))
-    end
-
-    defp keccak(unquote(bits), src) do
-      len = byte_size(src)
-
-      @a
-      |> absorb(src, len, len, unquote(rate), <<0x01>>)
-      |> binary_part(0, unquote(outlen))
-    end
+  defp binary_a64("", tuple) do
+    tuple
   end
 
-  for {bits, rate} <- [{128, 168}, {256, 136}] do
-    defp shake(unquote(bits), outlen, src) do
-      len = byte_size(src)
-
-      squeeze(
-        <<0::outlen*8>>,
-        absorb(@a, src, len, len, unquote(rate), <<0x1F>>),
-        outlen,
-        unquote(rate)
-      )
-    end
+  defp a64_binary(tuple) do
+    Tuple.to_list(tuple)
+    |> Enum.map(fn num -> <<num::little-unsigned-size(64)>> end)
+    |> :erlang.iolist_to_binary()
   end
 
-  defp keccakf(
-         <<b0::binary-size(8), b1::binary-size(8), b2::binary-size(8), b3::binary-size(8),
-           b4::binary-size(8), b5::binary-size(8), b6::binary-size(8), b7::binary-size(8),
-           b8::binary-size(8), b9::binary-size(8), b10::binary-size(8), b11::binary-size(8),
-           b12::binary-size(8), b13::binary-size(8), b14::binary-size(8), b15::binary-size(8),
-           b16::binary-size(8), b17::binary-size(8), b18::binary-size(8), b19::binary-size(8),
-           b20::binary-size(8), b21::binary-size(8), b22::binary-size(8), b23::binary-size(8),
-           b24::binary-size(8)>>
-       ) do
-    keccakf(
-      b0,
-      b1,
-      b2,
-      b3,
-      b4,
-      b5,
-      b6,
-      b7,
-      b8,
-      b9,
-      b10,
-      b11,
-      b12,
-      b13,
-      b14,
-      b15,
-      b16,
-      b17,
-      b18,
-      b19,
-      b20,
-      b21,
-      b22,
-      b23,
-      b24,
-      0
-    )
+  def xor(a, b) do
+    Bitwise.bxor(a, b)
   end
 
-  defp keccakf(
-         b0,
-         b1,
-         b2,
-         b3,
-         b4,
-         b5,
-         b6,
-         b7,
-         b8,
-         b9,
-         b10,
-         b11,
-         b12,
-         b13,
-         b14,
-         b15,
-         b16,
-         b17,
-         b18,
-         b19,
-         b20,
-         b21,
-         b22,
-         b23,
-         b24,
-         24
-       ) do
-    <<b0::binary(), b1::binary(), b2::binary(), b3::binary(), b4::binary(), b5::binary(),
-      b6::binary(), b7::binary(), b8::binary(), b9::binary(), b10::binary(), b11::binary(),
-      b12::binary(), b13::binary(), b14::binary(), b15::binary(), b16::binary(), b17::binary(),
-      b18::binary(), b19::binary(), b20::binary(), b21::binary(), b22::binary(), b23::binary(),
-      b24::binary()>>
-  end
+  # defp bnot(a), do: xor(a, @full64)
+  defp bnot(a), do: xor(a, @full64)
 
-  @full64 <<0xFFFFFFFFFFFFFFFF::little-unsigned-size(64)>>
-  for {step, rc} <- [
-        {0, 1},
-        {1, 0x8082},
-        {2, 0x800000000000808A},
-        {3, 0x8000000080008000},
-        {4, 0x808B},
-        {5, 0x80000001},
-        {6, 0x8000000080008081},
-        {7, 0x8000000000008009},
-        {8, 0x8A},
-        {9, 0x88},
-        {10, 0x80008009},
-        {11, 0x8000000A},
-        {12, 0x8000808B},
-        {13, 0x800000000000008B},
-        {14, 0x8000000000008089},
-        {15, 0x8000000000008003},
-        {16, 0x8000000000008002},
-        {17, 0x8000000000000080},
-        {18, 0x800A},
-        {19, 0x800000008000000A},
-        {20, 0x8000000080008081},
-        {21, 0x8000000000008080},
-        {22, 0x80000001},
-        {23, 0x8000000080008008}
-      ] do
-    defp keccakf(
-           b0,
-           b1,
-           b2,
-           b3,
-           b4,
-           b5,
-           b6,
-           b7,
-           b8,
-           b9,
-           b10,
-           b11,
-           b12,
-           b13,
-           b14,
-           b15,
-           b16,
-           b17,
-           b18,
-           b19,
-           b20,
-           b21,
-           b22,
-           b23,
-           b24,
-           unquote(step)
-         ) do
-      zero = exor(b0, b5, b10, b15, b20)
-      one = exor(b1, b6, b11, b16, b21)
-      two = exor(b2, b7, b12, b17, b22)
-      three = exor(b3, b8, b13, b18, b23)
-      four = exor(b4, b9, b14, b19, b24)
-      tmp0 = exor(four, rol(one, 1))
-      tmp1 = exor(zero, rol(two, 1))
-      tmp2 = exor(one, rol(three, 1))
-      tmp3 = exor(two, rol(four, 1))
-      tmp4 = exor(three, rol(zero, 1))
+  defp band(a, b), do: Bitwise.band(a, b)
 
-      keccakf_exor(
-        unquote(step),
-        exor(b0, tmp0),
-        # b6 -> b1
-        rol(exor(b6, tmp1), 44),
-        # b12 -> b2
-        rol(exor(b12, tmp2), 43),
-        # b18 -> b3
-        rol(exor(b18, tmp3), 21),
-        # b24 -> b4
-        rol(exor(b24, tmp4), 14),
-        # b3 -> b5
-        rol(exor(b3, tmp3), 28),
-        # b9 -> b6
-        rol(exor(b9, tmp4), 20),
-        # b10 -> b7
-        rol(exor(b10, tmp0), 3),
-        # b16 -> b8
-        rol(exor(b16, tmp1), 45),
-        # b22 -> b9
-        rol(exor(b22, tmp2), 61),
-        # b1 -> b10
-        rol(exor(b1, tmp1), 1),
-        # b7 -> b11
-        rol(exor(b7, tmp2), 6),
-        # b13 -> b12
-        rol(exor(b13, tmp3), 25),
-        # b19 -> b13
-        rol(exor(b19, tmp4), 8),
-        # b20 -> b14
-        rol(exor(b20, tmp0), 18),
-        # b4 -> b15
-        rol(exor(b4, tmp4), 27),
-        # b5 -> b16
-        rol(exor(b5, tmp0), 36),
-        # b11 -> b17
-        rol(exor(b11, tmp1), 10),
-        # b17 -> b18
-        rol(exor(b17, tmp2), 15),
-        # b23 -> b19
-        rol(exor(b23, tmp3), 56),
-        # b2 -> b20
-        rol(exor(b2, tmp2), 62),
-        # b8 -> b21
-        rol(exor(b8, tmp3), 55),
-        # b14 -> b22
-        rol(exor(b14, tmp4), 39),
-        # b15 -> b23
-        rol(exor(b15, tmp0), 41),
-        # b21 -> b24
-        rol(exor(b21, tmp1), 2)
-      )
-    end
+  Record.defrecord(:calc,
+    inbin: {@zero64, @zero64, @zero64, @zero64, @zero64},
+    t: @zero64,
+    state: nil
+  )
 
-    defp keccakf_exor(
-           unquote(step),
-           b0,
-           b1,
-           b2,
-           b3,
-           b4,
-           b5,
-           b6,
-           b7,
-           b8,
-           b9,
-           b10,
-           b11,
-           b12,
-           b13,
-           b14,
-           b15,
-           b16,
-           b17,
-           b18,
-           b19,
-           b20,
-           b21,
-           b22,
-           b23,
-           b24
-         ) do
-      # b0  -> b0 ^^^ b1 &&& b2 #0 ^^^ rc
-      keccakf(
-        exor(
-          exor(b0, band(exor(b1, @full64), b2)),
-          <<unquote(rc)::little-unsigned-size(64)>>
-        ),
-        # b6  -> b1 ^^^ b2 &&& b3 #1
-        exor(b1, band(exor(b2, @full64), b3)),
-        # b12 -> b2 ^^^ b3 &&& b4 #2
-        exor(b2, band(exor(b3, @full64), b4)),
-        # b18 -> b3 ^^^ b4 &&& b0 #3
-        exor(b3, band(exor(b4, @full64), b0)),
-        # b24 -> b4 ^^^ b0 &&& b1 #4
-        exor(b4, band(exor(b0, @full64), b1)),
-        # b3  -> b5 ^^^ b6 &&& b7 #0
-        exor(b5, band(exor(b6, @full64), b7)),
-        # b9  -> b6 ^^^ b7 &&& b8 #1
-        exor(b6, band(exor(b7, @full64), b8)),
-        # b10 -> b7 ^^^ b8 &&& b9 #2
-        exor(b7, band(exor(b8, @full64), b9)),
-        # b16 -> b8 ^^^ b9 &&& b6 #3
-        exor(b8, band(exor(b9, @full64), b5)),
-        # b22 -> b9 ^^^ b6 &&& b5 #4
-        exor(b9, band(exor(b5, @full64), b6)),
-        # b1  -> b10 ^^^ b11 &&& b12 #0
-        exor(b10, band(exor(b11, @full64), b12)),
-        # b7  -> b11 ^^^ b12 &&& b14 #1
-        exor(b11, band(exor(b12, @full64), b13)),
-        # b13 -> b12 ^^^ b14 &&& b15 #2
-        exor(b12, band(exor(b13, @full64), b14)),
-        # b19 -> b13 ^^^ b15 &&& b10 #3
-        exor(b13, band(exor(b14, @full64), b10)),
-        # b20 -> b14 ^^^ b10 &&& b11 #4
-        exor(b14, band(exor(b10, @full64), b11)),
-        # b4  -> b15 ^^^ b16 &&& b17 #0
-        exor(b15, band(exor(b16, @full64), b17)),
-        # b5  -> b16 ^^^ b17 &&& b18 #1
-        exor(b16, band(exor(b17, @full64), b18)),
-        # b11 -> b17 ^^^ b18 &&& b19 #2
-        exor(b17, band(exor(b18, @full64), b19)),
-        # b17 -> b18 ^^^ b19 &&& b15 #3
-        exor(b18, band(exor(b19, @full64), b15)),
-        # b23 -> b19 ^^^ b15 &&& b16 #4
-        exor(b19, band(exor(b15, @full64), b16)),
-        # b2  -> b20 ^^^ b21 &&& b22 #0
-        exor(b20, band(exor(b21, @full64), b22)),
-        # b8  -> b21 ^^^ b22 &&& b23 #1
-        exor(b21, band(exor(b22, @full64), b23)),
-        # b14 -> b22 ^^^ b23 &&& b24 #2
-        exor(b22, band(exor(b23, @full64), b24)),
-        # b15 -> b23 ^^^ b24 &&& b20 #3
-        exor(b23, band(exor(b24, @full64), b20)),
-        # b21 -> b24 ^^^ b20 &&& b21 #4
-        exor(b24, band(exor(b20, @full64), b21)),
-        unquote(step) + 1
-      )
-    end
-  end
+  defp keccakf(a) do
+    state = binary_a64(a, {})
+    # acc = {a, inbin}
+    acc = calc(state: state)
 
-  defp rol(<<x::little-unsigned-size(64)>>, s) do
-    x = x <<< s
-    y = x >>> 64
-    x = (x &&& 0xFFFFFFFFFFFFFFFF) + y
-    <<x::little-unsigned-size(64)>>
-  end
+    for_n(24, 1, acc, fn i, acc ->
+      # // Theta
+      acc =
+        for_n(5, 1, acc, fn x, acc = calc(inbin: inbin) ->
+          inbin = put_elem(inbin, x, @zero64)
+          acc = calc(acc, inbin: inbin)
 
-  @zero <<0::little-unsigned-size(64)>>
-  defp exor(one, two, three, four, five) do
-    @zero
-    |> exor(one)
-    |> exor(two)
-    |> exor(three)
-    |> exor(four)
-    |> exor(five)
-  end
+          for_n(5, 5, acc, fn y, acc = calc(state: state, inbin: inbin) ->
+            ret = xor(elem(inbin, x), elem(state, x + y))
+            inbin = put_elem(inbin, x, ret)
+            calc(acc, inbin: inbin)
+          end)
+        end)
 
-  defp exor(one, two) do
-    :crypto.exor(one, two)
-  end
+      calc(state: state, inbin: inbin) =
+        for_n(5, 1, acc, fn x, acc ->
+          for_n(5, 5, acc, fn y, acc = calc(state: state, inbin: inbin) ->
+            ret =
+              xor(elem(inbin, rem(x + 4, 5)), rol(elem(inbin, rem(x + 1, 5)), 1))
+              |> xor(elem(state, y + x))
 
-  defp band(<<a::little-unsigned-size(64)>>, <<b::little-unsigned-size(64)>>) do
-    <<a &&& b::little-unsigned-size(64)>>
+            state = put_elem(state, x + y, ret)
+            calc(acc, state: state)
+          end)
+        end)
+
+      # // Rho and pi
+      acc = calc(t: elem(state, 1), state: state, inbin: inbin)
+
+      acc =
+        for_n(24, 1, acc, fn x, calc(state: state, inbin: inbin, t: t) ->
+          inbin = put_elem(inbin, 0, elem(state, pi(x)))
+          state = put_elem(state, pi(x), rol(t, rho(x)))
+          calc(t: elem(inbin, 0), state: state, inbin: inbin)
+        end)
+
+      # // Chi
+      acc =
+        calc(state: state) =
+        for_n(5, 5, acc, fn y, acc ->
+          acc =
+            for_n(5, 1, acc, fn x, acc = calc(state: state, inbin: inbin) ->
+              inbin = put_elem(inbin, x, elem(state, y + x))
+              calc(acc, inbin: inbin)
+            end)
+
+          for_n(5, 1, acc, fn x, acc = calc(state: state, inbin: inbin) ->
+            ret =
+              bnot(elem(inbin, rem(x + 1, 5)))
+              |> band(elem(inbin, rem(x + 2, 5)))
+              |> xor(elem(inbin, x))
+
+            state = put_elem(state, y + x, ret)
+            calc(acc, state: state)
+          end)
+        end)
+
+      # // Iota
+      state = put_elem(state, 0, xor(elem(state, 0), rc(i)))
+      calc(acc, state: state)
+    end)
+    |> calc(:state)
+    |> a64_binary()
   end
 
   defp xorin(dst, src, offset, len) do
-    <<start::binary-size(len), rest::binary()>> = dst
-    <<_start::binary-size(offset), block::binary-size(len), _rest::binary()>> = src
-    <<exor(block, start)::binary(), rest::binary()>>
+    new = :crypto.exor(binary_part(src, offset, len), binary_part(dst, 0, len))
+    dst2 = binary_put(dst, 0, new)
+    {dst2, src}
   end
 
-  defp xor(a, len, value) do
-    <<start::binary-size(len), block::binary-size(1), rest::binary()>> = a
-    <<start::binary(), exor(block, value)::binary(), rest::binary()>>
+  defp setout(src, dst, offset, len) do
+    new = binary_part(src, 0, len)
+    dst2 = binary_put(dst, offset, new)
+    {src, dst2}
   end
 
-  # Fallbacks
-
-  defp absorb(a, src, src_len, len, rate, delim) when len >= rate do
-    a
-    |> xorin(src, src_len - len, rate)
-    |> keccakf()
-    |> absorb(src, src_len, len - rate, rate, delim)
+  # P*F over the full blocks of an input.
+  defp foldP(a, inbin, len, fun, rate) when len >= rate do
+    {a, inbin} = fun.(a, inbin, byte_size(inbin) - len, rate)
+    a = keccakf(a)
+    foldP(a, inbin, len - rate, fun, rate)
   end
 
-  defp absorb(a, src, src_len, len, rate, delim) do
-    a
-    # Xor source the DS and pad frame.
-    |> xor(len, delim)
-    #
-    |> xor(rate - 1, <<0x80>>)
-    |> xorin(src, src_len - len, len)
-    # Apply P
-    |> keccakf()
+  defp foldP(a, inbin, len, _fun, _rate) do
+    {a, inbin, len}
   end
 
-  defp squeeze(out, a, len, rate) do
-    case out do
-      <<_offset::binary-size(len), rest::binary()>> when len >= rate ->
-        <<binary_part(a, 0, len)::binary(), rest::binary>>
-        |> keccakf()
-        |> squeeze(a, len - rate, rate)
-
-      <<_offset::binary-size(len), rest::binary()>> ->
-        <<binary_part(a, 0, len)::binary(), rest::binary()>>
-    end
+  defp binary_put(bin, offset, new) do
+    binary_part(bin, 0, offset) <>
+      new <> binary_part(bin, offset + byte_size(new), byte_size(bin) - (offset + byte_size(new)))
   end
+
+  defp binary_new(size) do
+    String.duplicate(<<0>>, size)
+  end
+
+  defp binary_xor(var, index, value) do
+    index = floor(index)
+    c = :crypto.exor(binary_part(var, index, 1), value)
+    binary_put(var, index, c)
+  end
+
+  @plen 200
+  # /** The sponge-based hash construction. **/
+  defp hash(outlen, source, rate, delim) do
+    outlen = floor(outlen)
+    inlen = floor(byte_size(source))
+    rate = floor(rate)
+
+    # // Absorb input.
+    a = binary_new(@plen)
+    {a, _, inlen} = foldP(a, source, inlen, &xorin/4, rate)
+    # // Xor source the DS and pad frame.
+    a = binary_xor(a, inlen, <<delim>>)
+    a = binary_xor(a, rate - 1, <<0x80>>)
+    # // Xor source the last block.
+    {a, _source} = xorin(a, source, floor(byte_size(source) - inlen), inlen)
+    # // Apply P
+    a = keccakf(a)
+    # // Squeeze output.
+    out = binary_new(outlen)
+    {a, out, outlen} = foldP(a, out, outlen, &setout/4, rate)
+    {_a, out} = setout(a, out, 0, outlen)
+    out
+  end
+
+  defp shake(bits, outlen, source), do: hash(outlen, source, 200 - bits / 4, 0x1F)
+  @spec shake_128(binary(), number()) :: binary()
+  def shake_128(source, outlen), do: shake(128, outlen, source)
+  @spec shake_256(binary(), number()) :: binary()
+  def shake_256(source, outlen), do: shake(256, outlen, source)
+
+  defp sha3(bits, source), do: hash(bits / 8, source, 200 - bits / 4, 0x06)
+  @spec sha3_224(binary()) :: binary()
+  def sha3_224(source), do: sha3(224, source)
+  @spec sha3_256(binary()) :: binary()
+  def sha3_256(source), do: sha3(256, source)
+  @spec sha3_384(binary()) :: binary()
+  def sha3_384(source), do: sha3(384, source)
+  @spec sha3_512(binary()) :: binary()
+  def sha3_512(source), do: sha3(512, source)
+
+  defp keccak(bits, source), do: hash(bits / 8, source, 200 - bits / 4, 0x01)
+  @spec keccak_224(binary()) :: binary()
+  def keccak_224(source), do: keccak(224, source)
+  @spec keccak_256(binary()) :: binary()
+  def keccak_256(source), do: keccak(256, source)
+  @spec keccak_384(binary()) :: binary()
+  def keccak_384(source), do: keccak(384, source)
+  @spec keccak_512(binary()) :: binary()
+  def keccak_512(source), do: keccak(512, source)
 end

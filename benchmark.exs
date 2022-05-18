@@ -7,7 +7,6 @@ end
 IO.puts("=========== emu_flavor = #{flavor} ===========")
 Benchee.run(%{
   "  ex_sha3_256" => fn input -> ExSha3.sha3_256(input) end,
-  "tiny_sha3_256" => fn input -> ExSha3Tiny.sha3_256(input) end,
   " nif_sha3_256" => fn input -> :sha3.hash(256, input) end,
 },
 inputs: %{

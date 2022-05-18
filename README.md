@@ -13,7 +13,7 @@ The package can be installed by adding `exsha3` to your list of dependencies in 
 ```elixir
 def deps do
   [
-    {:exsha3, "~> 0.1.0"}
+    {:exsha3, "~> 0.1"}
   ]
 end
 ```
@@ -24,14 +24,13 @@ This is a proof of concept, and while is correct it is also really slow. Have a 
 
 ```
 > ./benchmark.sh
-Compiling 2 files (.ex)
-Generated ex_sha3 app
+=========== emu_flavor = jit ===========
 Operating System: Linux
-CPU Information: Intel(R) Core(TM) i5-4210U CPU @ 1.70GHz
-Number of Available Cores: 4
-Available memory: 11.65 GB
-Elixir 1.8.1
-Erlang 21.3.6
+CPU Information: AMD Ryzen 7 3700U with Radeon Vega Mobile Gfx
+Number of Available Cores: 8
+Available memory: 15.45 GB
+Elixir 1.11.4
+Erlang 24.0-rc1
 
 Benchmark suite executing with the following configuration:
 warmup: 2 s
@@ -39,34 +38,28 @@ time: 5 s
 memory time: 0 ns
 parallel: 1
 inputs: long  string, short string
-Estimated total run time: 42 s
+Estimated total run time: 28 s
 
 Benchmarking   ex_sha3_256 with input long  string...
 Benchmarking   ex_sha3_256 with input short string...
 Benchmarking  nif_sha3_256 with input long  string...
 Benchmarking  nif_sha3_256 with input short string...
-Benchmarking tiny_sha3_256 with input long  string...
-Benchmarking tiny_sha3_256 with input short string...
 
 ##### With input long  string #####
 Name                    ips        average  deviation         median         99th %
- nif_sha3_256       2243.02        0.45 ms    ±19.35%        0.41 ms        0.80 ms
-  ex_sha3_256          9.36      106.82 ms    ±17.61%      103.31 ms      140.47 ms
-tiny_sha3_256          3.08      324.64 ms     ±7.78%      329.71 ms      346.81 ms
+ nif_sha3_256        4.24 K        0.24 ms    ±24.26%        0.21 ms        0.48 ms
+  ex_sha3_256     0.00989 K      101.15 ms     ±5.02%       99.30 ms      121.34 ms
 
 Comparison: 
- nif_sha3_256       2243.02
-  ex_sha3_256          9.36 - 239.60x slower +106.37 ms
-tiny_sha3_256          3.08 - 728.18x slower +324.20 ms
+ nif_sha3_256        4.24 K
+  ex_sha3_256     0.00989 K - 428.71x slower +100.91 ms
 
 ##### With input short string #####
 Name                    ips        average  deviation         median         99th %
- nif_sha3_256     215033.52     0.00465 ms   ±315.46%     0.00428 ms     0.00911 ms
-  ex_sha3_256        870.25        1.15 ms    ±58.49%        0.90 ms        2.65 ms
-tiny_sha3_256        685.44        1.46 ms    ±14.52%        1.40 ms        2.59 ms
+ nif_sha3_256      283.57 K        3.53 μs   ±499.14%        3.28 μs        8.17 μs
+  ex_sha3_256        1.61 K      621.56 μs    ±18.51%      600.85 μs     1285.68 μs
 
 Comparison: 
- nif_sha3_256     215033.52
-  ex_sha3_256        870.25 - 247.09x slower +1.14 ms
-tiny_sha3_256        685.44 - 313.71x slower +1.45 ms
+ nif_sha3_256      283.57 K
+  ex_sha3_256        1.61 K - 176.26x slower +618.04 μs
 ```
