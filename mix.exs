@@ -42,10 +42,10 @@ defmodule ExSha3.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:profiler, "~> 0.2", only: :profile},
-      {:benchee, "~> 1.0", only: :benchmark},
-      {:sha3, "2.0.0", only: :benchmark},
-      {:ex_doc, "~> 0.19", only: :dev, runtime: false}
+      {:profiler, "~> 0.2", only: [:dev], runtime: false},
+      {:benchee, "~> 1.0", only: [:dev], runtime: false},
+      {:sha3, "2.0.0", only: [:dev], runtime: false},
+      {:ex_doc, "~> 0.19", only: [:dev], runtime: false}
     ]
   end
 end
