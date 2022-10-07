@@ -1,4 +1,4 @@
-# MIX_ENV=benchmark mix run benchmark.exs
+# mix run benchmark.exs
 flavor = try do
   :erlang.system_info(:emu_flavor)
 rescue
