@@ -22,7 +22,7 @@ defmodule ExSha3.MixProject do
 
   defp package do
     [
-      licenses: ["Apache 2.0"],
+      licenses: ["Apache-2.0"],
       maintainers: [
         "Dominic Letz"
       ],
