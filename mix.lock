@@ -11,6 +11,5 @@
   "makeup_erlang": {:hex, :makeup_erlang, "0.1.1", "3fcb7f09eb9d98dc4d208f49cc955a34218fc41ff6b84df7c75b3e6e533cc65f", [:mix], [{:makeup, "~> 1.0", [hex: :makeup, repo: "hexpm", optional: false]}], "hexpm", "174d0809e98a4ef0b3309256cbf97101c6ec01c4ab0b23e926a9e17df2077cbb"},
   "nimble_parsec": {:hex, :nimble_parsec, "1.2.3", "244836e6e3f1200c7f30cb56733fd808744eca61fd182f731eac4af635cc6d0b", [:mix], [], "hexpm", "c8d789e39b9131acf7b99291e93dae60ab48ef14a7ee9d58c6964f59efb570b0"},
   "profiler": {:hex, :profiler, "0.2.5", "15b8397a8c289ae145acdeb5f01b74165c03c01dbd0a8aa3c9dd323731925bb3", [:mix], [], "hexpm", "41a4c2f511904271ea9ced080910f5ace0e588c6bf549bc79b06b8e0c3e31472"},
-  "sha3": {:hex, :sha3, "2.0.0", "fbe5db75a8389fdc810b682446c053b91e591d38d5422808f3a702ed2b270515", [:rebar3], [{:hex2bin, "1.0.0", [hex: :hex2bin, repo: "hexpm", optional: false]}], "hexpm", "ce303b54df12629b1f55ce7b2c4a6ed55b503b2e783ec5acba9251c3eab05d6d"},
   "statistex": {:hex, :statistex, "1.0.0", "f3dc93f3c0c6c92e5f291704cf62b99b553253d7969e9a5fa713e5481cd858a5", [:mix], [], "hexpm", "ff9d8bee7035028ab4742ff52fc80a2aa35cece833cf5319009b52f1b5a86c27"},
 }

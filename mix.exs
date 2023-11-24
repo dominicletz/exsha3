@@ -44,7 +44,6 @@ defmodule ExSha3.MixProject do
     [
       {:profiler, "~> 0.2", only: [:dev], runtime: false},
       {:benchee, "~> 1.0", only: [:dev], runtime: false},
-      {:sha3, "2.0.0", only: [:dev], runtime: false},
       {:ex_doc, "~> 0.19", only: [:dev], runtime: false}
     ]
   end
