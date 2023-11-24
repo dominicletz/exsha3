@@ -1,4 +1,4 @@
-# ExSha3
+# ExSha3 ![Build](https://github.com/dominicletz/exhsha3/actions/workflows/test.yml/badge.svg)
 
 Pure Elixir implemtation of Keccak, SHA-3 (FIPS-202) and shake. The provided code is an experiment in porting the c-algorithm to Elixir. While it should be correct don't expect native performance.
 
