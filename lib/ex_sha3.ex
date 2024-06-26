@@ -1,6 +1,3 @@
-require Bitwise
-require Record
-
 defmodule ExSha3 do
   @moduledoc """
     ExSha3 supports the three hash algorithms:
@@ -12,15 +9,14 @@ defmodule ExSha3 do
     bit length, while shake produces an arbitary length output according
     to the provided outlen parameter.
   """
+  require Record
+  import :erlang, only: [bxor: 2, band: 2]
 
   @compile :inline_list_funcs
   @compile {:inline_unroll, 24}
   @compile {:inline_effort, 500}
   @compile {:inline_size, 1000}
-  @compile {
-    :inline,
-    rho: 1, pi: 1, rc: 1, rol: 2, for_n: 4, binary_a64: 2, xor: 2, bnot: 1, band: 2
-  }
+  @compile {:inline, rol: 2, for_n: 4, binary_a64: 2, bnot: 1}
   @rho {1, 3, 6, 10, 15, 21, 28, 36, 45, 55, 2, 14, 27, 41, 56, 8, 25, 43, 62, 18, 39, 61, 20, 44}
   @pi {10, 7, 11, 17, 18, 3, 5, 16, 8, 21, 24, 4, 15, 23, 19, 13, 12, 2, 20, 14, 22, 9, 6, 1}
   @rc {1, 0x8082, 0x800000000000808A, 0x8000000080008000, 0x808B, 0x80000001, 0x8000000080008081,
@@ -31,28 +27,18 @@ defmodule ExSha3 do
   @zero64 0
   @full64 0xFFFFFFFFFFFFFFFF
 
-  defp rho(index), do: elem(@rho, index)
-  defp pi(index), do: elem(@pi, index)
-  defp rc(index), do: elem(@rc, index)
-
-  defp rol(x, s) do
-    x = Bitwise.bsl(x, s)
-    y = Bitwise.bsr(x, 64)
-    band(x, @full64) + y
+  defp rol(x, s) when is_integer(x) and is_integer(s) do
+    x = :erlang.bsl(x, s)
+    y = :erlang.bsr(x, 64)
+    :erlang.band(x, @full64) + y
   end
 
-  defp for_n(n, step, acc, fun) do
-    :lists.foldl(
-      fn i, acc ->
-        fun.(i * step, acc)
-      end,
-      acc,
-      :lists.seq(0, n - 1)
-    )
-  end
+  defp for_n(0, _step, acc, _fun), do: acc
 
-  # defp for24(step, acc, fun), do: for_n(24, step, acc, fun)
-  # defp for5(step, acc, fun), do: for_n(5, step, acc, fun)
+  defp for_n(n, step, acc, fun) when is_integer(n) and is_integer(step) do
+    n = n - 1
+    fun.(n * step, for_n(n, step, acc, fun))
+  end
 
   defp binary_a64(<<bin::little-unsigned-size(64), rest::binary>>, tuple) do
     binary_a64(rest, Tuple.append(tuple, bin))
@@ -68,14 +54,7 @@ defmodule ExSha3 do
     |> :erlang.iolist_to_binary()
   end
 
-  def xor(a, b) do
-    Bitwise.bxor(a, b)
-  end
-
-  # defp bnot(a), do: xor(a, @full64)
-  defp bnot(a), do: xor(a, @full64)
-
-  defp band(a, b), do: Bitwise.band(a, b)
+  defp bnot(a) when is_integer(a), do: bxor(a, @full64)
 
   Record.defrecord(:calc,
     inbin: {@zero64, @zero64, @zero64, @zero64, @zero64},
@@ -84,30 +63,37 @@ defmodule ExSha3 do
   )
 
   defp keccakf(a) do
+    rho = @rho
+    pi = @pi
+    rc = @rc
+
     state = binary_a64(a, {})
     # acc = {a, inbin}
     acc = calc(state: state)
 
-    for_n(24, 1, acc, fn i, acc ->
+    for_n(24, 1, acc, fn i, acc when is_integer(i) and is_tuple(acc) ->
       # // Theta
       acc =
-        for_n(5, 1, acc, fn x, acc = calc(inbin: inbin) ->
+        for_n(5, 1, acc, fn x, acc = calc(inbin: inbin)
+                            when is_integer(x) and is_tuple(state) and is_tuple(inbin) ->
           inbin = put_elem(inbin, x, @zero64)
           acc = calc(acc, inbin: inbin)
 
-          for_n(5, 5, acc, fn y, acc = calc(state: state, inbin: inbin) ->
-            ret = xor(elem(inbin, x), elem(state, x + y))
+          for_n(5, 5, acc, fn y, acc = calc(state: state, inbin: inbin)
+                              when is_integer(y) and is_tuple(state) and is_tuple(inbin) ->
+            ret = bxor(elem(inbin, x), elem(state, x + y))
             inbin = put_elem(inbin, x, ret)
             calc(acc, inbin: inbin)
           end)
         end)
 
       calc(state: state, inbin: inbin) =
-        for_n(5, 1, acc, fn x, acc ->
-          for_n(5, 5, acc, fn y, acc = calc(state: state, inbin: inbin) ->
+        for_n(5, 1, acc, fn x, acc when is_integer(x) ->
+          for_n(5, 5, acc, fn y, acc = calc(state: state, inbin: inbin)
+                              when is_integer(y) and is_tuple(state) and is_tuple(inbin) ->
             ret =
-              xor(elem(inbin, rem(x + 4, 5)), rol(elem(inbin, rem(x + 1, 5)), 1))
-              |> xor(elem(state, y + x))
+              bxor(elem(inbin, rem(x + 4, 5)), rol(elem(inbin, rem(x + 1, 5)), 1))
+              |> bxor(elem(state, y + x))
 
             state = put_elem(state, x + y, ret)
             calc(acc, state: state)
@@ -118,27 +104,33 @@ defmodule ExSha3 do
       acc = calc(t: elem(state, 1), state: state, inbin: inbin)
 
       acc =
-        for_n(24, 1, acc, fn x, calc(state: state, inbin: inbin, t: t) ->
-          inbin = put_elem(inbin, 0, elem(state, pi(x)))
-          state = put_elem(state, pi(x), rol(t, rho(x)))
-          calc(t: elem(inbin, 0), state: state, inbin: inbin)
+        for_n(24, 1, acc, fn x, calc(state: state, inbin: inbin, t: t)
+                             when is_integer(x) and is_integer(t) and is_tuple(state) and
+                                    is_tuple(inbin) ->
+          pix = elem(pi, x)
+          new_t = elem(state, pix)
+          inbin = put_elem(inbin, 0, new_t)
+          state = put_elem(state, pix, rol(t, elem(rho, x)))
+          calc(t: new_t, state: state, inbin: inbin)
         end)
 
       # // Chi
       acc =
         calc(state: state) =
-        for_n(5, 5, acc, fn y, acc ->
+        for_n(5, 5, acc, fn y, acc when is_integer(y) ->
           acc =
-            for_n(5, 1, acc, fn x, acc = calc(state: state, inbin: inbin) ->
+            for_n(5, 1, acc, fn x, acc = calc(state: state, inbin: inbin)
+                                when is_integer(x) and is_tuple(state) and is_tuple(inbin) ->
               inbin = put_elem(inbin, x, elem(state, y + x))
               calc(acc, inbin: inbin)
             end)
 
-          for_n(5, 1, acc, fn x, acc = calc(state: state, inbin: inbin) ->
+          for_n(5, 1, acc, fn x, acc = calc(state: state, inbin: inbin)
+                              when is_integer(x) and is_tuple(state) and is_tuple(inbin) ->
             ret =
               bnot(elem(inbin, rem(x + 1, 5)))
               |> band(elem(inbin, rem(x + 2, 5)))
-              |> xor(elem(inbin, x))
+              |> bxor(elem(inbin, x))
 
             state = put_elem(state, y + x, ret)
             calc(acc, state: state)
@@ -146,7 +138,7 @@ defmodule ExSha3 do
         end)
 
       # // Iota
-      state = put_elem(state, 0, xor(elem(state, 0), rc(i)))
+      state = put_elem(state, 0, bxor(elem(state, 0), elem(rc, i)))
       calc(acc, state: state)
     end)
     |> calc(:state)
