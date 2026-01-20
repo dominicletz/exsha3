@@ -41,7 +41,7 @@ defmodule ExSha3 do
   end
 
   defp binary_a64(<<bin::little-unsigned-size(64), rest::binary>>, tuple) do
-    binary_a64(rest, Tuple.append(tuple, bin))
+    binary_a64(rest, Tuple.insert_at(tuple, tuple_size(tuple), bin))
   end
 
   defp binary_a64("", tuple) do
